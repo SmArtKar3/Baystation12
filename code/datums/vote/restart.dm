@@ -6,8 +6,9 @@
 	results_length = 1
 
 /datum/vote/restart/can_run(mob/creator, automatic)
-	if(automatic || check_rights(R_SERVER, 0, creator))
-		return TRUE
+	if(!automatic && !config.allow_vote_restart && !check_rights(R_SERVER, 0, creator)) //INF, WAS: if(!automatic && !config.allow_vote_restart && !is_admin(creator))
+		return FALSE // Admins and autovotes bypass the config setting.
+	return ..()
 
 /datum/vote/restart/handle_default_votes()
 	var/non_voters = ..()

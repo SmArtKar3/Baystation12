@@ -200,7 +200,7 @@
 		eye_blurry = 1
 	else
 		//blindness
-		if(!(sdisabilities & BLIND))
+		if(!(sdisabilities & BLINDED))
 			if(equipment_tint_total >= TINT_BLIND)	// Covered eyes, heal faster
 				eye_blurry = max(eye_blurry-2, 0)
 
@@ -889,7 +889,6 @@
 		mind.changeling.regenerate()
 
 /mob/living/carbon/human/proc/handle_shock()
-	..()
 	if(status_flags & GODMODE)	return 0	//godmode
 	if(!can_feel_pain())
 		shock_stage = 0

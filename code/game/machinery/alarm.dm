@@ -8,11 +8,11 @@
 		GAS_CO2 = TRUE
 	)
 	var/list/filter_gasses = list(
-		GAS_OXYGEN =         list("command" = "o2_scrub",  "value" = "filter_o2"),
-		GAS_NITROGEN =       list("command" = "n2_scrub",	 "value" = "filter_n2"),
-		GAS_CO2 = list("command" = "co2_scrub", "value" = "filter_co2"),
-		GAS_N2O = list("command" = "n2o_scrub", "value" = "filter_n2o"),
-		GAS_PHORON =         list("command" = "tox_scrub", "value" = "filter_phoron")
+		GAS_OXYGEN,
+		GAS_NITROGEN,
+		GAS_CO2,
+		GAS_N2O,
+		GAS_PHORON
 	)
 
 ////////////////////////////////////////
@@ -379,8 +379,6 @@
 	set_light(0.25, 0.1, 1, 2, new_color)
 
 /obj/machinery/alarm/receive_signal(datum/signal/signal)
-	if(stat & (NOPOWER|BROKEN))
-		return
 	if (alarm_area.master_air_alarm != src)
 		if (master_is_operating())
 			return
@@ -391,6 +389,7 @@
 		return
 	if(alarm_id == signal.data["alarm_id"] && signal.data["command"] == "shutdown")
 		mode = AALARM_MODE_OFF
+		report_danger_level = FALSE
 		apply_mode()
 		return
 
@@ -398,8 +397,6 @@
 	if (!id_tag)
 		return
 	if (signal.data["area"] != area_uid)
-		return
-	if (signal.data["sigtype"] != "status")
 		return
 
 	var/dev_type = signal.data["device"]
@@ -418,22 +415,7 @@
 	else if (device_type=="AScr")
 		new_name = "[alarm_area.name] Air Scrubber #[alarm_area.air_scrub_names.len+1]"
 		alarm_area.air_scrub_names[m_id] = new_name
-	else
-		return
-	spawn (10)
-		send_signal(m_id, list("init" = new_name) )
-
-/obj/machinery/alarm/proc/refresh_all()
-	for(var/id_tag in alarm_area.air_vent_names)
-		var/list/I = alarm_area.air_vent_info[id_tag]
-		if (I && I["timestamp"]+AALARM_REPORT_TIMEOUT/2 > world.time)
-			continue
-		send_signal(id_tag, list("status") )
-	for(var/id_tag in alarm_area.air_scrub_names)
-		var/list/I = alarm_area.air_scrub_info[id_tag]
-		if (I && I["timestamp"]+AALARM_REPORT_TIMEOUT/2 > world.time)
-			continue
-		send_signal(id_tag, list("status") )
+	send_signal(m_id, list("init" = new_name) )
 
 /obj/machinery/alarm/proc/set_frequency(new_frequency)
 	radio_controller.remove_object(src, frequency)
@@ -451,6 +433,7 @@
 	signal.data = command
 	signal.data["tag"] = target
 	signal.data["sigtype"] = "command"
+	signal.data["status"] = TRUE
 
 	radio_connection.post_signal(src, signal, RADIO_FROM_AIRALARM)
 //			log_debug(text("Signal [] Broadcasted to []", command, target))
@@ -466,33 +449,33 @@
 	switch(mode)
 		if(AALARM_MODE_SCRUBBING)
 			for(var/device_id in alarm_area.air_scrub_names)
-				send_signal(device_id, list("power"= 1, "co2_scrub"= 1, "scrubbing"= SCRUBBER_SCRUB, "panic_siphon"= 0) )
+				send_signal(device_id, list("set_power"= 1, "set_scrub_gas" = list(GAS_CO2 = 1), "set_scrubbing"= SCRUBBER_SCRUB, "panic_siphon"= 0) )
 			for(var/device_id in alarm_area.air_vent_names)
-				send_signal(device_id, list("power"= 1, "checks"= "default", "set_external_pressure"= "default") )
+				send_signal(device_id, list("set_power"= 1, "set_checks"= "default", "set_external_pressure"= "default") )
 
 		if(AALARM_MODE_PANIC, AALARM_MODE_CYCLE)
 			for(var/device_id in alarm_area.air_scrub_names)
-				send_signal(device_id, list("power"= 1, "panic_siphon"= 1) )
+				send_signal(device_id, list("set_power"= 1, "panic_siphon"= 1) )
 			for(var/device_id in alarm_area.air_vent_names)
-				send_signal(device_id, list("power"= 0) )
+				send_signal(device_id, list("set_power"= 0) )
 
 		if(AALARM_MODE_REPLACEMENT)
 			for(var/device_id in alarm_area.air_scrub_names)
-				send_signal(device_id, list("power"= 1, "panic_siphon"= 1) )
+				send_signal(device_id, list("set_power"= 1, "panic_siphon"= 1) )
 			for(var/device_id in alarm_area.air_vent_names)
-				send_signal(device_id, list("power"= 1, "checks"= "default", "set_external_pressure"= "default") )
+				send_signal(device_id, list("set_power"= 1, "set_checks"= "default", "set_external_pressure"= "default") )
 
 		if(AALARM_MODE_FILL)
 			for(var/device_id in alarm_area.air_scrub_names)
-				send_signal(device_id, list("power"= 0) )
+				send_signal(device_id, list("set_power"= 0) )
 			for(var/device_id in alarm_area.air_vent_names)
-				send_signal(device_id, list("power"= 1, "checks"= "default", "set_external_pressure"= "default") )
+				send_signal(device_id, list("set_power"= 1, "set_checks"= "default", "set_external_pressure"= "default") )
 
 		if(AALARM_MODE_OFF)
 			for(var/device_id in alarm_area.air_scrub_names)
-				send_signal(device_id, list("power"= 0) )
+				send_signal(device_id, list("set_power"= 0) )
 			for(var/device_id in alarm_area.air_vent_names)
-				send_signal(device_id, list("power"= 0) )
+				send_signal(device_id, list("set_power"= 0) )
 
 /obj/machinery/alarm/proc/apply_danger_level(var/new_danger_level)
 	if (report_danger_level && alarm_area.atmosalert(new_danger_level, src))
@@ -618,12 +601,11 @@
 					)
 				var/decl/environment_data/env_info = decls_repository.get_decl(environment_type)
 				for(var/gas_id in env_info.filter_gasses)
-					var/list/filter_data = env_info.filter_gasses[gas_id]
 					scrubbers[scrubbers.len]["filters"] += list(
 						list(
-							"name" =    gas_data.name[gas_id],
-							"command" = filter_data["command"],
-							"val" =     info[filter_data["value"]]
+							"name" = gas_data.name[gas_id],
+							"id"   = gas_id,
+							"val"  = (gas_id in info["scrubbing_gas"])
 						)
 					)
 
@@ -725,21 +707,21 @@
 					send_signal(device_id, list(href_list["command"] = ONE_ATMOSPHERE))
 					return TOPIC_REFRESH
 
-				if( "power",
-					"adjust_external_pressure",
-					"checks",
-					"o2_scrub",
-					"n2_scrub",
-					"co2_scrub",
-					"tox_scrub",
-					"n2o_scrub",
+				if( "set_power",
+					"set_checks",
 					"panic_siphon")
 
 					send_signal(device_id, list(href_list["command"] = text2num(href_list["val"]) ) )
 					return TOPIC_REFRESH
 
-				if("scrubbing")
+				if("set_scrubbing")
 					send_signal(device_id, list(href_list["command"] = href_list["scrub_mode"]) )
+					return TOPIC_REFRESH
+
+				if("set_scrub_gas")
+					var/decl/environment_data/env_info = decls_repository.get_decl(environment_type)
+					if(env_info && (href_list["gas_id"] in env_info.filter_gasses))
+						send_signal(device_id, list(href_list["command"] = list(href_list["gas_id"] = text2num(href_list["val"]))) )
 					return TOPIC_REFRESH
 
 				if("set_threshold")
