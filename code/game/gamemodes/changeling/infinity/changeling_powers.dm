@@ -890,8 +890,8 @@ var/list/datum/absorbed_dna/hivemind_bank = list()
 	var/mob/living/carbon/human/T = changeling_sting(5,/mob/proc/changeling_deaf_sting, loud = 1)
 	if(!T)	return 0
 	to_chat(T, SPAN_DANGER("Your ears pop and begin ringing loudly!"))
-	T.sdisabilities |= DEAF
-	spawn(300)	T.sdisabilities &= ~DEAF
+	T.sdisabilities |= DEAFENED
+	spawn(300)	T.sdisabilities &= ~DEAFENED
 	SSstatistics.add_field_details("changeling_powers","DS")
 	return 1
 
